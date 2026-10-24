@@ -1,0 +1,548 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Team Yellow</title>
+
+  <link
+    href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;600&family=IBM+Plex+Mono:wght@400&display=swap"
+    rel="stylesheet">
+
+  <style>
+    :root {
+      --bg: #fff;
+      --fg: #161616;
+      --mute: #525252;
+      --line: #e0e0e0;
+      --acc: #0f62fe;
+      --l1: #f4f4f4;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html,
+    body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--fg);
+      font-family: "IBM Plex Sans", sans-serif;
+      overflow: hidden;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 8px;
+      background: var(--acc);
+      z-index: 7;
+    }
+
+    .slide {
+      position: absolute;
+      inset: 0;
+      padding: 8vh 8vw 12vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      opacity: 0;
+      pointer-events: none;
+      visibility: hidden;
+      transform: translateY(100%);
+      transition:
+        transform .45s cubic-bezier(.2, 0, .38, .9),
+        opacity .3s ease,
+        visibility 0s linear .45s;
+    }
+
+    .slide.before {
+      transform: translateY(-100%);
+    }
+
+    .slide.on {
+      opacity: 1;
+      pointer-events: auto;
+      visibility: visible;
+      transform: translateY(0);
+      transition-delay: 0s;
+    }
+
+    .slide:nth-of-type(1),
+    .slide:last-of-type {
+      background: #161616;
+      color: #f4f4f4;
+    }
+
+    .slide:nth-of-type(1) p.lead,
+    .slide:last-of-type p.lead {
+      color: #c6c6c6;
+    }
+
+    .slide:last-of-type a {
+      color: #78a9ff;
+    }
+
+    .k {
+      font-family: "IBM Plex Mono", monospace;
+      font-size: clamp(11px, 1vw, 14px);
+      color: var(--acc);
+      letter-spacing: .32px;
+      margin-bottom: 4vh;
+    }
+
+    .slide:nth-of-type(1) .k,
+    .slide:last-of-type .k {
+      color: #78a9ff;
+    }
+
+    h1 {
+      font-weight: 300;
+      font-size: clamp(44px, 7.5vw, 112px);
+      line-height: 1.08;
+      letter-spacing: -.5px;
+    }
+
+    h2 {
+      font-weight: 300;
+      font-size: clamp(30px, 4.2vw, 60px);
+      line-height: 1.15;
+      margin-bottom: 5vh;
+      max-width: 25ch;
+    }
+
+    em {
+      font-style: normal;
+      font-weight: 600;
+      color: var(--acc);
+    }
+
+    .slide:nth-of-type(1) em,
+    .slide:last-of-type em {
+      color: #78a9ff;
+    }
+
+    p.lead {
+      font-size: clamp(16px, 1.5vw, 20px);
+      color: var(--mute);
+      max-width: 56ch;
+      line-height: 1.5;
+      margin-top: 4vh;
+      font-weight: 400;
+    }
+
+    code {
+      font-family: "IBM Plex Mono", monospace;
+      background: #262626;
+      border-left: 3px solid var(--acc);
+      padding: 1em 1.4em;
+      display: inline-block;
+      font-size: clamp(13px, 1.3vw, 18px);
+      margin-top: 5vh;
+      color: #f4f4f4;
+      align-self: flex-start;
+      max-width: 100%;
+      overflow-wrap: anywhere;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 2px;
+      background: var(--bg);
+    }
+
+    .grid div {
+      padding: 2.6vh 1.4vw 3.4vh;
+      background: var(--l1);
+      border-top: 2px solid transparent;
+      transition: border-color .11s;
+    }
+
+    .grid div:hover {
+      border-top-color: var(--acc);
+    }
+
+    .grid b {
+      display: block;
+      font-weight: 600;
+      font-size: clamp(14px, 1.3vw, 18px);
+      margin-bottom: .6em;
+    }
+
+    .grid span {
+      color: var(--mute);
+      font-size: clamp(13px, 1vw, 15px);
+      line-height: 1.45;
+    }
+
+    .big {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 2px;
+    }
+
+    .big div {
+      font-weight: 300;
+      font-size: clamp(52px, 8vw, 120px);
+      line-height: 1;
+      padding: 4vh 1.4vw;
+      background: var(--l1);
+      color: var(--acc);
+    }
+
+    .big small {
+      display: block;
+      font-size: clamp(12px, 1vw, 14px);
+      color: var(--mute);
+      margin-top: 2vh;
+      font-weight: 400;
+    }
+
+    ol {
+      list-style: none;
+      counter-reset: s;
+      border-top: 1px solid var(--line);
+    }
+
+    ol li {
+      counter-increment: s;
+      display: flex;
+      gap: 2vw;
+      padding: 1.8vh 0;
+      border-bottom: 1px solid var(--line);
+      font-size: clamp(15px, 1.4vw, 20px);
+    }
+
+    ol li::before {
+      content: "0" counter(s);
+      font-family: "IBM Plex Mono", monospace;
+      color: var(--acc);
+      font-size: .8em;
+      padding-top: .2em;
+      min-width: 2.5em;
+    }
+
+    ol li span {
+      color: var(--mute);
+    }
+
+    nav {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 48px;
+      padding: 0 0 0 8vw;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 14px;
+      color: #161616;
+      z-index: 5;
+      background: var(--l1);
+      border-top: 1px solid var(--line);
+    }
+
+    nav div {
+      display: flex;
+      height: 100%;
+    }
+
+    nav button {
+      background: var(--acc);
+      border: 0;
+      color: #fff;
+      width: 48px;
+      height: 48px;
+      cursor: pointer;
+      font-size: 18px;
+    }
+
+    nav button:first-child {
+      background: #393939;
+    }
+
+    nav button:hover:not(:disabled) {
+      background: #0050e6;
+    }
+
+    nav button:focus-visible {
+      outline: 2px solid #fff;
+      outline-offset: -4px;
+    }
+
+    nav button:disabled {
+      opacity: .4;
+      cursor: default;
+    }
+
+    .bar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      height: 4px;
+      background: var(--acc);
+      transition: width .24s;
+      z-index: 6;
+    }
+
+    a {
+      color: var(--acc);
+    }
+
+    body.dark nav {
+      background: #262626;
+      border-top-color: #393939;
+      color: #f4f4f4;
+    }
+
+    body.dark nav button:first-child {
+      background: #525252;
+    }
+
+    @media (max-width: 600px) {
+      .slide {
+        padding: 9vh 7vw 80px 9vw;
+        justify-content: flex-start;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+
+      .slide,
+      .bar {
+        transition: none;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="bar" id="bar" aria-hidden="true"></div>
+
+  <section class="slide on">
+    <div class="k">RESPONSIBLE AI BOB-A-THON. TEAM YELLOW.</div>
+    <h1>Bob Lab <br><em> AI study mate.</em></h1>
+    <p class="lead">
+      Andrei Klimentov, Elizaveta Shkurskaia, <br>Piotr Zaniewski,
+      Sardorbek Abdurakhimov
+    </p>
+  </section>
+
+  <section class="slide">
+    <div class="k">01 — THE PROBLEM</div>
+    <h2>
+      Designing AI That Makes Us Smarter, Not More Dependent
+      <em>How to prevent Overreliance?</em>
+    </h2>
+    <p class="lead">
+      Responsible usage comes from responsible learning.
+    </p>
+  </section>
+
+  <section class="slide">
+    <div class="k">02 — TARGET AUDIENCE</div>
+    <h2>Students</h2>
+    <div class="grid">
+      <div>
+        <b>Schools</b>
+        <span>
+          Computer classes and other subjects in future
+        </span>
+      </div>
+      <div>
+        <b>Universities</b>
+        <span>
+          Computer Science majors
+        </span>
+      </div>
+      <div>
+        <b>Corporate training</b>
+        <span>
+          Professional trainings
+        </span>
+      </div>
+    </div>
+  </section>
+
+  <section class="slide">
+    <div class="k">03 — THE CHALLENGES</div>
+    <h2><em> Objectives </em></h2>
+    <ol>
+      <li>
+        Keep Humans Mentally Engaged
+        <span>— active participation</span>
+      </li>
+      <li>
+        Prevent Skill Degradation
+        <span>— support lerning and mentoring</span>
+      </li>
+    </ol>
+  </section>
+
+  <section class="slide">
+    <div class="k">04 — THE END</div>
+    <h1>Thank you</h1>
+
+    <p class="lead">
+      GitHub :
+      <a href="https://github.com/piotr-zaniewski/BobHackathon" target="_blank"
+        rel="noopener noreferrer">github.com/piotr-zaniewski/BobHackathon</a>
+    </p>
+  </section>
+
+  <nav aria-label="Slide navigation">
+    <span id="n" aria-live="polite"></span>
+    <div>
+      <button id="p" type="button" aria-label="Previous slide" title="Previous slide (↑)">↑</button>
+      <button id="x" type="button" aria-label="Next slide" title="Next slide (↓)">↓</button>
+    </div>
+  </nav>
+
+  <script>
+    const slides = [...document.querySelectorAll(".slide")];
+    const counter = document.getElementById("n");
+    const progress = document.getElementById("bar");
+    const previousButton = document.getElementById("p");
+    const nextButton = document.getElementById("x");
+
+    let index = 0;
+
+    function go(direction) {
+      index = Math.max(
+        0,
+        Math.min(slides.length - 1, index + direction)
+      );
+
+      slides.forEach((slide, slideIndex) => {
+        const active = slideIndex === index;
+
+        slide.classList.toggle("on", active);
+        slide.classList.toggle("before", slideIndex < index);
+        slide.setAttribute("aria-hidden", String(!active));
+        slide.inert = !active;
+      });
+
+      counter.textContent =
+        String(index + 1).padStart(2, "0") +
+        " / " +
+        String(slides.length).padStart(2, "0");
+
+      document.body.classList.toggle(
+        "dark",
+        index === 0 || index === slides.length - 1
+      );
+
+      progress.style.width =
+        ((index + 1) / slides.length * 100) + "%";
+
+      previousButton.disabled = index === 0;
+      nextButton.disabled = index === slides.length - 1;
+
+      // Keep keyboard focus usable when a navigation button becomes disabled.
+      if (
+        previousButton.disabled &&
+        document.activeElement === previousButton
+      ) {
+        nextButton.focus({preventScroll: true});
+      } else if (
+        nextButton.disabled &&
+        document.activeElement === nextButton
+      ) {
+        previousButton.focus({preventScroll: true});
+      }
+    }
+
+    previousButton.addEventListener("click", () => go(-1));
+    nextButton.addEventListener("click", () => go(1));
+
+    window.addEventListener("keydown", event => {
+      const target = event.target;
+
+      if (event.altKey || event.ctrlKey || event.metaKey) return;
+
+      // Leave typing and editable content alone.
+      if (
+        target instanceof Element &&
+        target.closest(
+          'input, textarea, select, ' +
+          '[contenteditable]:not([contenteditable="false"])'
+        )
+      ) {
+        return;
+      }
+
+      let direction = 0;
+
+      if (event.key === "ArrowDown" || event.key === "PageDown") {
+        direction = 1;
+      } else if (
+        event.key === "ArrowUp" ||
+        event.key === "PageUp"
+      ) {
+        direction = -1;
+      } else if (event.key === " ") {
+        // Preserve native Space activation on buttons and links.
+        if (
+          target instanceof Element &&
+          target.closest("button, a")
+        ) {
+          return;
+        }
+
+        direction = event.shiftKey ? -1 : 1;
+      }
+
+      if (direction !== 0) {
+        event.preventDefault();
+        go(direction);
+      }
+    });
+
+    let touchStart = null;
+
+    window.addEventListener("touchstart", event => {
+      if (event.touches.length !== 1) {
+        touchStart = null;
+        return;
+      }
+
+      touchStart = {
+        x: event.touches[0].clientX,
+        y: event.touches[0].clientY
+      };
+    }, {passive: true});
+
+    window.addEventListener("touchend", event => {
+      if (!touchStart || !event.changedTouches.length) return;
+
+      const touch = event.changedTouches[0];
+      const dx = touch.clientX - touchStart.x;
+      const dy = touch.clientY - touchStart.y;
+
+      touchStart = null;
+
+      // Swipe up for next; swipe down for previous.
+      if (Math.abs(dy) > 40 && Math.abs(dy) > Math.abs(dx)) {
+        go(dy < 0 ? 1 : -1);
+      }
+    }, {passive: true});
+
+    window.addEventListener("touchcancel", () => {
+      touchStart = null;
+    }, {passive: true});
+
+    go(0);
+  </script>
+</body>
+
+</html>
