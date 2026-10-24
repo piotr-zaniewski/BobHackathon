@@ -246,3 +246,9 @@
 .app-shell[data-theme='dark'] .test-row-failed .test-icon { color: #ffc1b9; background: #563331; }
 .app-shell[data-theme='dark'] .test-row-passed .test-row-result { color: #a9d6ad; }
 .app-shell[data-theme='dark'] .test-row-failed .test-row-result { color: #efaaa0; }
+.rubric-check.done { border-color: #cbd0c8; background: #e9ebe6; color: #4f6253; }
+.test-summary-pass .test-summary-icon,
+.test-row-passed .test-icon { background: #eceeea; }
+.app-shell[data-theme='dark'] .rubric-check.done { border-color: #566158; background: #303833; color: #b8d6bb; }
+.app-shell[data-theme='dark'] .test-summary-pass .test-summary-icon,
+.app-shell[data-theme='dark'] .test-row-passed .test-icon { background: #303833; }

@@ -6,7 +6,7 @@ import {
   CircleHelp, Clock3, Code2, Command, Copy, Ellipsis, ExternalLink, Eye, EyeOff,
   FileCode2, FlaskConical, Lightbulb, ListChecks, LoaderCircle, MessageCircle,
   PanelRightClose, PanelRightOpen, Play, Plus, Send, Settings2, ShieldCheck, Sparkles,
-  Moon, SquareTerminal, Sun, Target, ThumbsUp, Timer, WandSparkles, X,
+  Moon, Sun, Target, ThumbsUp, Timer, WandSparkles, X,
 } from 'lucide-vue-next'
 import CodeEditor from './components/CodeEditor.vue'
 import Button from './components/ui/Button.vue'
@@ -16,7 +16,6 @@ const assignment = ref({
   title: 'Two Sum',
   course: 'Data structures & algorithms',
   unit: 'Hash maps · Week 04',
-  difficulty: 'Medium',
   prompt: 'Given an array of integers numbers and an integer target, return the indices of the two numbers that add up to target. You may assume exactly one solution exists, and you may not use the same element twice.',
   signature: 'twoSum(numbers, target)',
   rubric: ['Return the original indices', 'Complete in linear time', 'Explain the lookup invariant'],
@@ -56,12 +55,10 @@ const messages = ref([])
 const draft = ref('')
 const metrics = ref({ attempts: 0, edits: 0, explanations: 0, minutes: 0, pasteEvents: 0, passing: false, reviewSignal: false })
 const tests = ref(null)
-const activeTab = ref('Code')
 const coachVisible = ref(true)
 const isSending = ref(false)
 const isChecking = ref(false)
 const pasteFollowupInProgress = ref(false)
-const apiReady = ref(false)
 const timeTick = ref(0)
 const activeSeconds = ref(0)
 const showSessionTime = ref(localStorage.getItem('codecraft-show-session-time') !== 'false')
@@ -108,10 +105,7 @@ async function loadWorkspace() {
     ])
     assignment.value = task
     metrics.value = summary
-    activeSeconds.value = summary.minutes * 60
-    apiReady.value = true
   } catch {
-    apiReady.value = false
     messages.value = [{ role: 'assistant', content: 'Let’s start with the invariant: as you scan from left to right, what information would make it possible to find the matching number in one lookup?' }]
   }
 }
@@ -188,9 +182,22 @@ async function runCheck() {
   try {
     tests.value = await api('/api/check', { method: 'POST', body: JSON.stringify({ sessionId, code: code.value, language: language.value }) })
     metrics.value = await api(`/api/metrics?sessionId=${encodeURIComponent(sessionId)}`)
-    activeTab.value = 'Tests'
+    coachVisible.value = true
+    const checks = tests.value.checks || []
+    const passed = checks.filter((check) => check.passed).length
+    const nextQuestion = tests.value.passed
+      ? 'Can you explain why the lookup happens before inserting the current number, and what that guarantees?'
+      : `The first pattern not detected is “${checks.find((check) => !check.passed)?.label || 'a required structure'}”. What small change would address it?`
+    messages.value.push({
+      role: 'assistant',
+      content: `Check complete: ${passed}/${checks.length} expected code patterns detected. This check does not run the program or determine whether code was copied. ${nextQuestion}`,
+    })
+    await nextTickScroll()
   } catch {
     tests.value = { passed: false, label: 'API unavailable', detail: 'Start the local API to run the sample structure check.' }
+    coachVisible.value = true
+    messages.value.push({ role: 'assistant', content: 'I could not run the local structure check. Your code has not been checked for copying; please verify the app API connection and try again.' })
+    await nextTickScroll()
   } finally {
     isChecking.value = false
   }
@@ -272,7 +279,7 @@ onBeforeUnmount(() => {
     <header class="topbar">
       <div class="brand-lockup">
         <div class="brand-mark"><Command :size="17" :stroke-width="2.4" /></div>
-        <span class="brand-name">BobLab<span class="brand-dot">.</span></span>
+        <span class="brand-name">BobLab</span>
         <span class="top-divider"></span>
         <span class="workspace-label">Learning lab</span>
       </div>
@@ -291,16 +298,14 @@ onBeforeUnmount(() => {
         <span>{{ assignment.course }}</span>
         <span class="breadcrumb-sep">/</span>
         <span class="breadcrumb-current">{{ assignment.title }}</span>
-        <span class="demo-pill"><span></span>{{ apiReady ? 'Local session' : 'Offline demo' }}</span>
       </div>
 
       <section class="task-heading">
         <div class="task-title-block">
           <div class="eyebrow"><span class="eyebrow-line"></span>{{ assignment.course }} · {{ assignment.unit }}</div>
-          <h1 class="font-display">{{ assignment.title }}<span class="title-dot">.</span></h1>
+          <h1 class="font-display">{{ assignment.title }}</h1>
           <p class="task-subtitle">Build a one-pass solution. Explain the idea as you go.</p>
         </div>
-        <div class="task-meta"><span class="difficulty"><span class="difficulty-dot"></span>{{ assignment.difficulty }}</span></div>
       </section>
 
       <details class="problem-details" open>
@@ -337,17 +342,16 @@ onBeforeUnmount(() => {
 
           <div class="lower-panel panel">
             <div class="lower-tabs">
-              <button v-for="tab in ['Tests', 'Console']" :key="tab" :class="['lower-tab', { active: activeTab === tab }]" @click="activeTab = tab"><FlaskConical v-if="tab === 'Tests'" :size="14" /><SquareTerminal v-else :size="14" />{{ tab }}<span v-if="tab === 'Tests' && tests" :class="['test-count', tests.passed ? 'count-pass' : 'count-fail']">{{ passedTestCount }}/{{ tests.checks?.length || 0 }}</span></button>
+              <div class="lower-tab active"><FlaskConical :size="14" />Tests<span v-if="tests" :class="['test-count', tests.passed ? 'count-pass' : 'count-fail']">{{ passedTestCount }}/{{ tests.checks?.length || 0 }}</span></div>
               <span class="demo-grader-label">Sample structure check · no code execution</span>
             </div>
-            <div v-if="activeTab === 'Tests'" class="test-content">
+            <div class="test-content">
               <template v-if="tests">
                 <div class="test-summary" :class="tests.passed ? 'test-summary-pass' : 'test-summary-fail'"><span class="test-summary-icon"><Check v-if="tests.passed" :size="15" /><CircleHelp v-else :size="15" /></span><div><strong>{{ tests.label }}</strong><small>{{ tests.detail }}</small></div></div>
                 <div class="test-list"><div v-for="(item, index) in tests.checks || []" :key="index" :class="['test-row', item.passed ? 'test-row-passed' : 'test-row-failed']"><span :class="['test-icon', item.passed ? 'passed' : 'failed']">{{ item.passed ? '✓' : '×' }}</span><span class="test-row-label">{{ item.label }}</span><span class="test-row-result">{{ item.passed ? 'Passed' : 'Needs work' }}</span></div></div>
               </template>
               <div v-else class="empty-test"><span class="empty-test-icon"><FlaskConical :size="16" /></span><span>Run a check when you’re ready. The sample checker looks for solution structure, not correctness.</span><button @click="runCheck">Run check <ArrowRight :size="13" /></button></div>
             </div>
-            <div v-else class="console-content"><span class="console-prompt">›</span><span>Ready when you are. Run a check to see structural feedback here.</span></div>
           </div>
         </section>
 
