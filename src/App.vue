@@ -50,15 +50,16 @@ vector<int> twoSum(const vector<int>& numbers, int target) {
 const language = ref(localStorage.getItem('codecraft-language') === 'python' ? 'python' : 'cpp')
 const codeBuffers = ref({ ...starterCode })
 const code = ref(codeBuffers.value[language.value])
+const suppressEditTracking = ref(false)
 const theme = ref(localStorage.getItem('codecraft-theme') === 'dark' ? 'dark' : 'light')
 const messages = ref([])
 const draft = ref('')
 const metrics = ref({ attempts: 0, edits: 0, explanations: 0, minutes: 0, pasteEvents: 0, passing: false, reviewSignal: false })
 const tests = ref(null)
+const pasteSinceLastCheck = ref(false)
 const coachVisible = ref(true)
 const isSending = ref(false)
 const isChecking = ref(false)
-const pasteFollowupInProgress = ref(false)
 const timeTick = ref(0)
 const activeSeconds = ref(0)
 const showSessionTime = ref(localStorage.getItem('codecraft-show-session-time') !== 'false')
@@ -70,14 +71,14 @@ let displayTimer
 let lastActivity = Date.now()
 
 const completedRubric = computed(() => [
-  Boolean(tests.value?.passed),
+  Boolean(tests.value?.runtimeVerified),
   language.value === 'cpp'
     ? code.value.includes('unordered_map') && code.value.includes('seen[')
     : code.value.includes('seen = {}') && code.value.includes('seen['),
   messages.value.some((message) => message.role === 'user' && message.content.trim().length > 45),
 ])
 const rubricProgress = computed(() => completedRubric.value.filter(Boolean).length)
-const passedTestCount = computed(() => tests.value?.checks?.filter((check) => check.passed).length || 0)
+const detectedPatternCount = computed(() => tests.value?.checks?.filter((check) => check.detected).length || 0)
 const elapsed = computed(() => {
   timeTick.value
   const seconds = activeSeconds.value
@@ -105,6 +106,7 @@ async function loadWorkspace() {
     ])
     assignment.value = task
     metrics.value = summary
+    activeSeconds.value = summary.activeSeconds || 0
   } catch {
     messages.value = [{ role: 'assistant', content: 'Let’s start with the invariant: as you scan from left to right, what information would make it possible to find the matching number in one lookup?' }]
   }
@@ -119,6 +121,7 @@ const saveEdit = debounced(async (value) => {
 
 watch(code, (value) => {
   codeBuffers.value[language.value] = value
+  if (suppressEditTracking.value) return
   saveEdit(value)
 })
 
@@ -182,54 +185,41 @@ async function runCheck() {
   try {
     tests.value = await api('/api/check', { method: 'POST', body: JSON.stringify({ sessionId, code: code.value, language: language.value }) })
     metrics.value = await api(`/api/metrics?sessionId=${encodeURIComponent(sessionId)}`)
-    coachVisible.value = true
     const checks = tests.value.checks || []
-    const passed = checks.filter((check) => check.passed).length
-    const nextQuestion = tests.value.passed
-      ? 'Can you explain why the lookup happens before inserting the current number, and what that guarantees?'
-      : `The first pattern not detected is “${checks.find((check) => !check.passed)?.label || 'a required structure'}”. What small change would address it?`
-    messages.value.push({
-      role: 'assistant',
-      content: `Check complete: ${passed}/${checks.length} expected code patterns detected. This check does not run the program or determine whether code was copied. ${nextQuestion}`,
-    })
+    if (pasteSinceLastCheck.value) {
+      coachVisible.value = true
+      messages.value.push({
+        role: 'assistant',
+        content: 'I noticed a paste event before this check. That does not tell me who wrote the code, and this source review does not detect copying. Let’s talk through the solution so I can check your understanding.',
+      })
+      await nextTick()
+      try {
+        const result = await api('/api/coach', {
+          method: 'POST',
+          body: JSON.stringify({
+            sessionId,
+            code: code.value,
+            message: `The student pasted code and then explicitly submitted it for a source-pattern review. Do not accuse them or infer copying from the paste. Ask two short Socratic questions about the approach and its edge cases. The static scan detected ${tests.value.detectedCount} of ${checks.length} expected patterns, but it cannot establish correctness.`,
+            history: messages.value.slice(-6, -1),
+          }),
+        })
+        messages.value.push({ role: 'assistant', content: result.reply, provider: result.provider })
+      } catch (error) {
+        messages.value.push({ role: 'assistant', content: `Could you explain what the map stores and why the lookup happens before inserting the current number? (${error.message})` })
+      }
+    }
+    pasteSinceLastCheck.value = false
     await nextTickScroll()
   } catch {
-    tests.value = { passed: false, label: 'API unavailable', detail: 'Start the local API to run the sample structure check.' }
-    coachVisible.value = true
-    messages.value.push({ role: 'assistant', content: 'I could not run the local structure check. Your code has not been checked for copying; please verify the app API connection and try again.' })
-    await nextTickScroll()
+    tests.value = { status: 'unavailable', detectedCount: 0, label: 'Pattern review unavailable', detail: 'Start the local API to review source patterns.' , checks: [] }
   } finally {
     isChecking.value = false
   }
 }
 
 async function notePaste(size) {
+  pasteSinceLastCheck.value = true
   await record('paste', size)
-  if (pasteFollowupInProgress.value) return
-  pasteFollowupInProgress.value = true
-  coachVisible.value = true
-  messages.value.push({
-    role: 'assistant',
-    content: 'I noticed a solution was pasted into the editor. That is okay; let’s make sure the reasoning is yours. I’ll ask you to explain a couple of choices before we move on.',
-  })
-  await nextTick()
-  try {
-    const result = await api('/api/coach', {
-      method: 'POST',
-      body: JSON.stringify({
-        sessionId,
-        code: code.value,
-        message: 'The student just pasted a complete or substantial solution. Acknowledge this neutrally without accusing them or treating paste as proof of misconduct. Ask exactly two concise Socratic questions about the pasted approach: one about the data structure/invariant and one about why the complexity is linear. Do not reveal or rewrite the solution.',
-        history: messages.value.slice(-6, -1),
-      }),
-    })
-    messages.value.push({ role: 'assistant', content: result.reply, provider: result.provider })
-  } catch (error) {
-    messages.value.push({ role: 'assistant', content: `Let’s reason it through: what does each key and value in your lookup structure represent, and how does that avoid scanning the earlier numbers again? (${error.message})` })
-  } finally {
-    pasteFollowupInProgress.value = false
-    await nextTickScroll()
-  }
 }
 
 function copyCode() {
@@ -245,12 +235,40 @@ function toggleSessionTime() {
   localStorage.setItem('codecraft-show-session-time', String(showSessionTime.value))
 }
 
+async function resetDemoSession() {
+  const confirmed = window.confirm('Reset this demo session? Timer, checks, revisions, paste signals, chat, and editor changes will be cleared.')
+  if (!confirmed) return
+
+  saveEdit.cancel()
+  try {
+    await api('/api/session/reset', { method: 'POST', body: JSON.stringify({ sessionId }) })
+  } catch (error) {
+    messages.value.push({ role: 'assistant', content: `Could not reset the saved session data: ${error.message}` })
+    return
+  }
+
+  metrics.value = { attempts: 0, edits: 0, explanations: 0, minutes: 0, pasteEvents: 0, passing: false, reviewSignal: false }
+  tests.value = null
+  activeSeconds.value = 0
+  timeTick.value = 0
+  pasteSinceLastCheck.value = false
+  language.value = 'cpp'
+  localStorage.setItem('codecraft-language', 'cpp')
+  codeBuffers.value = { ...starterCode }
+  suppressEditTracking.value = true
+  code.value = starterCode.cpp
+  await nextTick()
+  suppressEditTracking.value = false
+  messages.value = [{ role: 'assistant', content: 'Demo session reset. Start with the invariant: as you scan from left to right, what information would let you find the matching number in one lookup?' }]
+}
+
 onMounted(async () => {
   await loadWorkspace()
   if (!messages.value.length) {
     messages.value = [{ role: 'assistant', content: 'As you scan the numbers once, what would you need to remember so you can find the matching value without searching the array again?' }]
   }
-  record('heartbeat')
+  await record('heartbeat')
+  activeSeconds.value = metrics.value.activeSeconds || activeSeconds.value
   heartbeatTimer = window.setInterval(() => {
     if (document.visibilityState === 'visible' && Date.now() - lastActivity < 60000) record('heartbeat')
   }, 30000)
@@ -320,7 +338,6 @@ onBeforeUnmount(() => {
         <div v-if="showSessionTime" class="session-stat time-stat"><Clock3 :size="14" /><span class="stat-label">Time</span><strong>{{ elapsed }}</strong></div>
         <button class="timer-toggle strip-toggle" :aria-label="showSessionTime ? 'Hide session timer' : 'Show session timer'" :title="showSessionTime ? 'Hide session timer' : 'Show session timer'" @click="toggleSessionTime"><EyeOff v-if="showSessionTime" :size="14" /><Eye v-else :size="14" /></button>
         <span class="strip-divider"></span>
-        <div class="session-stat"><Code2 :size="14" /><span class="stat-label">Revisions</span><strong>{{ metrics.edits || 0 }}</strong></div>
         <div class="session-stat"><CheckCheck :size="14" /><span class="stat-label">Checks</span><strong>{{ metrics.attempts || 0 }}</strong></div>
         <div class="session-stat integrity-stat" :title="reviewCopy"><ShieldCheck :size="14" /><span class="stat-label">Integrity</span><strong>{{ metrics.reviewSignal ? 'Review signal' : 'No flags' }}</strong><span v-if="metrics.pasteEvents" class="paste-count">{{ metrics.pasteEvents }} paste{{ metrics.pasteEvents === 1 ? '' : 's' }}</span></div>
         <div class="strip-end"><button class="coach-toggle" :aria-expanded="coachVisible" @click="toggleCoach"><PanelRightClose v-if="coachVisible" :size="14" /><PanelRightOpen v-else :size="14" />{{ coachVisible ? 'Hide coach' : 'Show coach' }}</button></div>
@@ -342,13 +359,13 @@ onBeforeUnmount(() => {
 
           <div class="lower-panel panel">
             <div class="lower-tabs">
-              <div class="lower-tab active"><FlaskConical :size="14" />Tests<span v-if="tests" :class="['test-count', tests.passed ? 'count-pass' : 'count-fail']">{{ passedTestCount }}/{{ tests.checks?.length || 0 }}</span></div>
-              <span class="demo-grader-label">Sample structure check · no code execution</span>
+              <div class="lower-tab active"><FlaskConical :size="14" />Pattern review<span v-if="tests" class="test-count">{{ detectedPatternCount }}/{{ tests.checks?.length || 0 }}</span></div>
+              <span class="demo-grader-label">Static scan · not compiled or run</span>
             </div>
             <div class="test-content">
               <template v-if="tests">
-                <div class="test-summary" :class="tests.passed ? 'test-summary-pass' : 'test-summary-fail'"><span class="test-summary-icon"><Check v-if="tests.passed" :size="15" /><CircleHelp v-else :size="15" /></span><div><strong>{{ tests.label }}</strong><small>{{ tests.detail }}</small></div></div>
-                <div class="test-list"><div v-for="(item, index) in tests.checks || []" :key="index" :class="['test-row', item.passed ? 'test-row-passed' : 'test-row-failed']"><span :class="['test-icon', item.passed ? 'passed' : 'failed']">{{ item.passed ? '✓' : '×' }}</span><span class="test-row-label">{{ item.label }}</span><span class="test-row-result">{{ item.passed ? 'Passed' : 'Needs work' }}</span></div></div>
+                <div class="test-summary test-summary-neutral"><span class="test-summary-icon"><CircleHelp :size="15" /></span><div><strong>{{ tests.label }} · {{ detectedPatternCount }}/{{ tests.checks.length }} patterns detected</strong><small>{{ tests.detail }}</small></div></div>
+                <div class="test-list"><div v-for="(item, index) in tests.checks || []" :key="index" :class="['test-row', item.detected ? 'pattern-detected' : 'pattern-missing']"><span :class="['test-icon', item.detected ? 'pattern-found-icon' : 'pattern-missing-icon']">{{ item.detected ? '✓' : '·' }}</span><span class="test-row-label">{{ item.label }}</span><span class="test-row-result">{{ item.detected ? 'Detected' : 'Not detected' }}</span></div></div>
               </template>
               <div v-else class="empty-test"><span class="empty-test-icon"><FlaskConical :size="16" /></span><span>Run a check when you’re ready. The sample checker looks for solution structure, not correctness.</span><button @click="runCheck">Run check <ArrowRight :size="13" /></button></div>
             </div>
@@ -374,7 +391,7 @@ onBeforeUnmount(() => {
         </aside>
       </section>
 
-      <footer class="page-footer"><span><span class="footer-brand-dot"></span> BOBLAB · HACKATHON PROJECT</span><span>CS 204 <span class="breadcrumb-sep">·</span> Problem set 04</span><button><CircleHelp :size="13" /> Need help?</button></footer>
+      <footer class="page-footer"><span><span class="footer-brand-dot"></span> BOBLAB · HACKATHON PROJECT</span><span>CS 204 <span class="breadcrumb-sep">·</span> Problem set 04</span><button title="Reset the demo session to zero" @click="resetDemoSession"><CircleHelp :size="13" /> Need help?</button></footer>
     </main>
   </div>
 </template>

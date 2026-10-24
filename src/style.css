@@ -246,6 +246,22 @@
 .app-shell[data-theme='dark'] .test-row-failed .test-icon { color: #ffc1b9; background: #563331; }
 .app-shell[data-theme='dark'] .test-row-passed .test-row-result { color: #a9d6ad; }
 .app-shell[data-theme='dark'] .test-row-failed .test-row-result { color: #efaaa0; }
+.test-summary-neutral { background: #f1f2ee; border-color: #e0e2dc; }
+.test-summary-neutral .test-summary-icon { color: #68746a; background: #e4e7e1; }
+.test-summary-neutral strong { color: #59645a; }
+.pattern-detected { color: #416e4a; }
+.pattern-missing { color: #777d75; }
+.pattern-found-icon { color: #3f6d48; background: #eceeea; }
+.pattern-missing-icon { color: #8a9088; background: #eceeea; }
+.pattern-detected .test-row-result,
+.pattern-missing .test-row-result { color: #737b72; }
+.app-shell[data-theme='dark'] .test-summary-neutral { background: #242b26; border-color: #394139; }
+.app-shell[data-theme='dark'] .test-summary-neutral .test-summary-icon,
+.app-shell[data-theme='dark'] .pattern-found-icon,
+.app-shell[data-theme='dark'] .pattern-missing-icon { color: #c0c9c0; background: #303833; }
+.app-shell[data-theme='dark'] .test-summary-neutral strong,
+.app-shell[data-theme='dark'] .pattern-detected,
+.app-shell[data-theme='dark'] .pattern-missing { color: #c7d0c7; }
 .rubric-check.done { border-color: #cbd0c8; background: #e9ebe6; color: #4f6253; }
 .test-summary-pass .test-summary-icon,
 .test-row-passed .test-icon { background: #eceeea; }

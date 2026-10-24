@@ -82,7 +82,7 @@ npm.cmd start
 
 These are formative signals shown to the student. A large paste may raise a review signal, but it is not evidence that cheating occurred. No camera, microphone, screen recording, or hidden monitoring is used.
 
-The “Check solution” action is deliberately not a test runner. It inspects the submitted source text for three language-specific patterns (a lookup map/dictionary, complement lookup, and index storage); it does not compile or execute code and does not prove correctness. Do not use this checker to grade students.
+The “Check solution” action is a static pattern review, not a compiler or test runner. It reports whether three language-specific source patterns (a lookup map/dictionary, complement lookup, and index storage) were detected. Detection does not mean the code compiles, is logically correct, or was authored by the student. Paste events are recorded silently; after the student clicks Check solution, a paste during the current edit interval can trigger neutral coach questions. This environment has no C++ compiler, and executing arbitrary student code directly in the API server would be unsafe. A true compile-and-test result requires an isolated sandbox with resource limits. Do not use this MVP's pattern review to grade students.
 
 The local SQLite database is stored in `server/learning-lab.sqlite` and is ignored by Git.
 

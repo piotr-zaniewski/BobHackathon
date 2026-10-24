@@ -351,34 +351,6 @@
             color: #c6c6c6;
         }
 
-        /* Slide number inside each slide */
-        .num {
-            position: absolute;
-            left: 8vw;
-            bottom: 64px;
-            font-family: "IBM Plex Mono", monospace;
-            font-size: clamp(13px, 1.2vw, 16px);
-            letter-spacing: .32px;
-            color: var(--mute);
-            pointer-events: none;
-        }
-
-        .num b {
-            color: var(--acc);
-            font-weight: 400;
-            font-size: 1.6em;
-        }
-
-        .slide:nth-of-type(1) .num,
-        .slide:last-of-type .num {
-            color: #a8a8a8;
-        }
-
-        .slide:nth-of-type(1) .num b,
-        .slide:last-of-type .num b {
-            color: #78a9ff;
-        }
-
         /* Spotlight on dark slides */
         .slide:nth-of-type(1)::after,
         .slide:last-of-type::after {
@@ -489,11 +461,6 @@
             .slide {
                 padding: 9vh 7vw 80px 9vw;
                 justify-content: flex-start;
-            }
-
-            .num {
-                left: 9vw;
-                bottom: 58px;
             }
 
             .brand {
@@ -710,15 +677,7 @@
             if (silhouette) element.style.setProperty("--sil", silhouette);
         });
 
-        /* ---------- Slide numbers, stagger index, spotlight ---------- */
         slides.forEach((slide, slideIndex) => {
-            const num = document.createElement("div");
-            num.className = "num";
-            num.setAttribute("aria-hidden", "true");
-            num.innerHTML =
-                "<b>" + pad(slideIndex + 1) + "</b> / " + pad(slides.length);
-            slide.appendChild(num);
-
             slide.querySelectorAll(".grid div, ol li").forEach((item, itemIndex) => {
                 item.style.setProperty("--i", itemIndex);
             });

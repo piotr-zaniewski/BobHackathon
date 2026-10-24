@@ -140,11 +140,28 @@ app.get('/api/metrics', (request, response) => {
     attempts,
     edits: totals.edits,
     explanations: totals.explanations,
+    activeSeconds: totals.active_seconds,
     minutes: Math.floor(totals.active_seconds / 60),
     pasteEvents: totals.paste_events,
     reviewSignal: Boolean(totals.review_signal),
     passing: Boolean(passing),
   })
+})
+
+app.post('/api/session/reset', (request, response) => {
+  const { sessionId } = request.body || {}
+  if (!validSession(sessionId)) return response.status(400).json({ error: 'Invalid session.' })
+
+  try {
+    database.exec('BEGIN IMMEDIATE')
+    const events = database.prepare('DELETE FROM events WHERE session_id = ?').run(sessionId)
+    const submissions = database.prepare('DELETE FROM submissions WHERE session_id = ?').run(sessionId)
+    database.exec('COMMIT')
+    response.json({ ok: true, events: events.changes, submissions: submissions.changes })
+  } catch (error) {
+    database.exec('ROLLBACK')
+    throw error
+  }
 })
 
 app.post('/api/check', (request, response) => {
@@ -156,26 +173,25 @@ app.post('/api/check', (request, response) => {
   // This is a source-text checklist, not a compiler, runtime, or correctness grader.
   const checks = language === 'cpp'
     ? [
-        { label: 'Uses an unordered lookup map', passed: /unordered_map\s*</.test(code) },
-        { label: 'Looks up the complement', passed: /\.find\s*\(\s*complement\s*\)/.test(code) },
-        { label: 'Stores the original index', passed: /seen\s*\[\s*numbers\s*\[\s*index\s*\]\s*\]\s*=\s*index/.test(code) },
+        { label: 'Uses an unordered lookup map', detected: /unordered_map\s*</.test(code) },
+        { label: 'Looks up the complement', detected: /\.find\s*\(\s*complement\s*\)/.test(code) },
+        { label: 'Stores an index in the lookup map', detected: /seen\s*\[[^\]]+\]\s*=\s*index/.test(code) },
       ]
     : [
-        { label: 'Creates a lookup dictionary', passed: /seen\s*=\s*\{\s*\}/.test(code) },
-        { label: 'Looks up the complement', passed: /complement\s+in\s+seen/.test(code) },
-        { label: 'Stores the original index', passed: /seen\s*\[\s*number\s*\]\s*=\s*index/.test(code) },
+        { label: 'Creates a lookup dictionary', detected: /seen\s*=\s*\{\s*\}/.test(code) },
+        { label: 'Looks up the complement', detected: /complement\s+in\s+seen/.test(code) },
+        { label: 'Stores an index in the lookup map', detected: /seen\s*\[[^\]]+\]\s*=\s*index/.test(code) },
       ]
-  const passed = checks.every((check) => check.passed)
-  database.prepare('INSERT INTO submissions(session_id, passed) VALUES (?, ?)').run(sessionId, Number(passed))
+  const detectedCount = checks.filter((check) => check.detected).length
+  database.prepare('INSERT INTO submissions(session_id, passed) VALUES (?, ?)').run(sessionId, 0)
 
   response.json({
-    passed,
-    label: passed ? 'Structure looks good' : 'A few pieces are still missing',
-    detail: passed
-      ? 'The expected lookup pattern is present. This check does not run your code or prove that it is correct.'
-      : 'Use the checklist below to see which patterns the sample checker can identify.',
+    status: 'pattern-review',
+    detectedCount,
+    label: 'Source pattern review',
+    detail: 'These source patterns are only hints. This does not compile or run your code and cannot establish correctness.',
     checks,
-    kind: 'static-demo-check',
+    kind: 'static-pattern-review',
     language,
   })
 })
